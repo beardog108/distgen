@@ -1,52 +1,59 @@
 #!/bin/bash
 # Client for distributed tor and bitcoin vanity address generation
+# Copyright 2017 Kevin Froman (https://ChaosWebs.net/) MIT License
+####Config Area###
 
-function encrypt {
+clientID="m1"
 
-if [ "$save" = "true" ]; then
-    echo "encrypting file"
-    #echo "$output"
-    echo $output | gpg  -a --passphrase "$password" --symmetric --cipher-algo AES256 >> address.asc
-    echo "exit code: $?"
-fi
+server="http://192.168.1.101:2015/distgen/"
 
-}
+checkTimeout=1
+##################
 
+weFound="true" # if this machine found it or not
 
-type="$1"
+while [ 1 ]
+do
+    type=$(curl -s "$server/distgen.php?cmd=type")
 
-string="$2"
+    string=$(curl -s "$server/distgen.php?cmd=string")
 
-crypt="$3"
-
-if [ "$crypt" = "true" ]; then
-    echo -n Password:
-    read -s password
-    echo
-fi
-
-if [ "$1" = "" ]; then
-    exit 0
-fi
-
-if [ "$2" = "" ]; then
-    echo "No string given"
-    exit 0
-fi
-
-if [ "$type" = "onion" ]; then
-    output=$(shallot $2)
-elif [ "$type" = "bitcoin" ]; then
-    output=$(vanitygen $2)
-fi
-
-if [ $? = 0 ]; then
-    echo "success"
-    if [ "$crypt" = "true" ]; then
-        encrypt
+    if [ "$type" = "" ]; then
+        exit 0
     fi
-    exit 0
-else
-    echo "Failure :("
-    exit 1
-fi
+
+    if [ "$string" = "" ]; then
+        echo "No string given"
+        exit 0
+    fi
+
+    if [ "$type" = "onion" ]; then
+        shallot $string >> address.txt &
+    elif [ "$type" = "bitcoin" ]; then
+        vanitygen $string >> address.txt &
+    fi
+    pid=$!
+    while [ 1 ]
+    do
+    if [ -e /proc/$pid ]; then
+        sleep $checkTimeout
+        if [ $(curl -s "$server/distgen.php?cmd=check") = "false" ]; then
+            echo "Another machine found it"
+            kill $pid
+            weFound="false"
+            break
+        fi
+    else
+        break
+    fi
+    done
+    if [ "$weFound" = "true" ]; then
+        if [ $? = 0 ]; then
+            echo "success, reporting back to server"
+            curl "$server/distgen.php?cmd=success&clientID=$clientID" >/dev/null
+        else
+            echo "Failure, reporting back to server"
+            curl "$server/distgen.php?cmd=failure&clientID=$clientID" >/dev/null
+        fi
+   fi
+done
