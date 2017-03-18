@@ -16,3 +16,4 @@ This is just a quickly written & simple bash+php script pair to make computing v
 * There is no authentication, so someone could tell your server that it was falsely solved (I will fix this later)
 * The computed key is written to disk, appended to address.txt
 * This will max out the client CPUs, and does no temperature monitoring.
+* **ONLY USE OVER HTTPS/OTHER SECURE TUNNEL & WITH A TRUSTED SERVER. OTHERWISE THIS MAY RESULT IN CODE INJECTION**
